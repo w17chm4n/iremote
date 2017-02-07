@@ -6,12 +6,14 @@
 #include "BluefruitConfig.h"
 #include "keycode.h"
 
+#define MODIFIER 0xC //0x9
 #define FACTORYRESET_ENABLE 0
 
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 
-const int BUTTON_PIN = 9;
-const int LED_PIN = 13;
+const int LEFT_PIN = 13;
+const int MIDDLE_PIN = 12;
+const int RIGHT_PIN = 11;
 
 int previousButtonState = LOW;
 
@@ -24,13 +26,14 @@ typedef struct {
 hid_keyboard_report_t keyReport = {0, 0, 0};
 
 void setup() {
-  //while (!Serial);
-  delay(500);
+  /*while (!Serial);
+  delay(500);*/
   
   Serial.begin(115200);
-  
-  pinMode(BUTTON_PIN, INPUT); // button pin
-  pinMode(LED_PIN, OUTPUT); //led pin
+
+  pinMode(LEFT_PIN, INPUT_PULLUP);
+  pinMode(MIDDLE_PIN, INPUT_PULLUP);
+  pinMode(RIGHT_PIN, INPUT_PULLUP);
 
   Serial.println("iRemote!");
   Serial.println("------");
@@ -57,18 +60,33 @@ void setup() {
   
 }
 
+void sendKey(uint8_t modifier, uint8_t key) {
+  keyReport.modifier = modifier;
+  keyReport.keycode = key;
+  ble.atcommand("AT+BLEKEYBOARDCODE", (uint8_t*) &keyReport, 3);
+  delay(40);
+  keyReport.modifier = HID_KEY_NONE;
+  keyReport.keycode = HID_KEY_NONE;
+  ble.atcommand("AT+BLEKEYBOARDCODE", (uint8_t*) &keyReport, 3);
+}
+
 void loop() {
-  int buttonState = digitalRead(BUTTON_PIN);
-  
-  if (buttonState == LOW && previousButtonState == HIGH) {
+  int leftButtonState = digitalRead(LEFT_PIN);
+  int middleButtonState = digitalRead(MIDDLE_PIN);
+  int rightButtonState = digitalRead(RIGHT_PIN);
+
+  if (leftButtonState == LOW && previousButtonState == HIGH) {
     previousButtonState = LOW;
-    keyReport.keycode = HID_KEY_SPACE;
-    ble.atcommand("AT+BLEKEYBOARDCODE", (uint8_t*) &keyReport, 3);
-    delay(40);
-    keyReport.keycode = HID_KEY_NONE;
-    ble.atcommand("AT+BLEKEYBOARDCODE", (uint8_t*) &keyReport, 3);
-  } else if (buttonState == HIGH && previousButtonState == LOW) {
+    sendKey(MODIFIER, HID_KEY_ARROW_LEFT);
+  } else if (middleButtonState == LOW && previousButtonState == HIGH) {
+    previousButtonState = LOW;
+    sendKey(HID_KEY_NONE, HID_KEY_SPACE);
+  } else if (rightButtonState == LOW && previousButtonState == HIGH) {
+    previousButtonState = LOW;
+    sendKey(MODIFIER, HID_KEY_ARROW_RIGHT);
+  } else if ((leftButtonState & middleButtonState & rightButtonState) == HIGH && previousButtonState == LOW) {
     previousButtonState = HIGH;
   }
+
   delay(60);
 }
