@@ -8,6 +8,7 @@
 
 #define MODIFIER 0xC //0x9
 #define FACTORYRESET_ENABLE 0
+#define VBAT_PIN A9
 
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 
@@ -26,8 +27,8 @@ typedef struct {
 hid_keyboard_report_t keyReport = {0, 0, 0};
 
 void setup() {
-  /*while (!Serial);
-  delay(500);*/
+  //while (!Serial);
+  delay(500);
   
   Serial.begin(115200);
 
@@ -54,10 +55,28 @@ void setup() {
     Serial.println("Could not enable HID!");
   }
 
+  if(!ble.sendCommandCheckOK("AT+HWModeLED=0")) {
+    Serial.println("Could not disable HW MODE LED!");
+  }
+
   if(!ble.reset()) {
     Serial.println("Could not reset!");
   }
+
+  ble.setMode(BLUEFRUIT_MODE_DATA);
+}
+
+void sendBatteryLevel() {
+  float batteryLevel = analogRead(VBAT_PIN);
+  batteryLevel *= 2;
+  batteryLevel *= 3.3;
+  batteryLevel /= 1024;
+
+  char buffer[5]; buffer[5] = 0;
+
+  dtostrf(batteryLevel,2,2,buffer);
   
+  ble.println(buffer);
 }
 
 void sendKey(uint8_t modifier, uint8_t key) {
@@ -81,6 +100,7 @@ void loop() {
   } else if (middleButtonState == LOW && previousButtonState == HIGH) {
     previousButtonState = LOW;
     sendKey(HID_KEY_NONE, HID_KEY_SPACE);
+    sendBatteryLevel();
   } else if (rightButtonState == LOW && previousButtonState == HIGH) {
     previousButtonState = LOW;
     sendKey(MODIFIER, HID_KEY_ARROW_RIGHT);
